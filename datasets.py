@@ -50,7 +50,7 @@ class PathPlanningDataset(Dataset):
 
         map_tensor = self.transform(map_img)
         points_tensor = self.transform(points_img)
-        input_tensor = torch.cat([map_tensor, points_tensor], dim=0)
+        input_tensor = points_tensor * map_tensor
         target_tensor = self.transform(target_img)
 
         return input_tensor, target_tensor
