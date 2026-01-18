@@ -30,12 +30,30 @@ class BottleneckBlock(nn.Module):
 
     def forward(self, x):
         return self.block(x)
+    
+class ResidualBlock(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+        
+        self.block = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(channels),
+            nn.GELU(),
+            nn.Conv2d(channels, channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(channels),
+        )
+
+        self.activation = nn.GELU()
+
+    def forward(self, x):
+        return self.activation(x + self.block(x))
 
 class ViTGenerator(nn.Module):
     def __init__(self):
         super().__init__()
         self.encoder = timm.create_model('vit_base_patch16_224', pretrained=True)
         self.encoder.head = nn.Identity()
+
         self.decoderBlock1 = DecoderBlock(768, 256)
         self.decoderBlock2 = DecoderBlock(256, 128)
         self.decoderBlock3 = DecoderBlock(128, 64)
@@ -45,10 +63,38 @@ class ViTGenerator(nn.Module):
         self.bottleneck2 = BottleneckBlock(896, 128)
         self.bottleneck3 = BottleneckBlock(832, 64)
 
+        self.refining_block = ResidualBlock(32)
+
         self.final_head = nn.Sequential(
             nn.Conv2d(32, 1, kernel_size=3, padding=1),
             nn.Sigmoid(),
         )
+
+        self.apply_custom_init()
+
+    def apply_custom_init(self):
+        new_modules = [
+            self.decoderBlock1,
+            self.decoderBlock2,
+            self.decoderBlock3,
+            self.decoderBlock4,
+            self.bottleneck1,
+            self.bottleneck2,
+            self.bottleneck3,
+            self.final_head,
+            self.refining_block,
+        ]
+
+        for module in new_modules:
+            for m in module.modules():
+                if isinstance(m, nn.Conv2d):
+                    nn.init.kaiming_normal_(m.weight)
+                    if m.bias is not None:
+                        nn.init.constant_(m.bias, 0)
+
+                elif isinstance(m, nn.BatchNorm2d):
+                    nn.init.constant_(m.weight, 1)
+                    nn.init.constant_(m.bias, 0)
 
     def skip_connection(self, skip_tensor, target_size):
         x = skip_tensor[:, 1:, :]
@@ -77,5 +123,6 @@ class ViTGenerator(nn.Module):
         x = self.bottleneck3(x)
 
         x = self.decoderBlock4(x)
+        x = self.refining_block(x)
         x = self.final_head(x)
         return x
