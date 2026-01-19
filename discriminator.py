@@ -39,3 +39,13 @@ class ViTDiscriminator(nn.Module):
     def forward(self, condition_tensor, target_tensor):
         x = torch.cat([condition_tensor, target_tensor], dim=1)
         return self.model(x)
+    
+if __name__ == "__main__":
+    D = ViTDiscriminator()
+
+    dummy_condition = torch.randn(1, 3, 224, 224)
+    dummy_target = torch.randn(1, 1, 224, 224)
+
+    output = D(dummy_condition, dummy_target)
+    print(f"Input shape: {(torch.cat([dummy_condition, dummy_target], dim=1)).shape}")
+    print(f"Output shape: {output.shape}")
