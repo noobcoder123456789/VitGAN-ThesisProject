@@ -15,6 +15,7 @@ LEARNING_RATE = 2e-4
 BETA1, BETA2 = 0.5, 0.999
 EPOCHS = 100
 LAMBDA_L1 = 100
+LAMDBA_ADV = 1
 SAVE_DIR = "checkpoints"
 DATA_DIR = "datasets"
 
@@ -39,3 +40,51 @@ def train():
         netD.train()
 
         pbar = tqdm(enumerate(dataloader), total=len(dataloader), desc=f"Epoch {epoch}/{EPOCHS}")
+        for i, (condition, target) in pbar:
+            condition = condition.to(DEVICE)
+            target = target.to(DEVICE)
+
+            # -------Train Discriminator-------
+            optimizer_D.zero_grad()
+
+            pred_real = netD(condition, target)
+            loss_D_real = criterion_GAN(pred_real, True)
+
+            with torch.no_grad():
+                fake_image = netG(condition)
+
+            pred_fake = netD(condition, fake_image.detach())
+            loss_D_fake = criterion_GAN(pred_fake, False)
+
+            loss_D = 0.5 * (loss_D_fake + loss_D_real)
+            loss_D.backward()
+            optimizer_D.step()
+
+            # -------Train Generator-------
+            optimizer_G.zero_grad()
+
+            fake_image_new = netG(condition)
+            pred_fake_new = netD(condition, fake_image_new)
+            loss_G_Adv = criterion_GAN(pred_fake_new, True)
+
+            weights = get_weight_map(condition, DEVICE, penalty_weight=50.0)
+            loss_G_L1 = criterion_L1(fake_image_new, target, weights)
+
+            loss_G = LAMBDA_L1 * loss_G_L1 + LAMDBA_ADV * loss_G_Adv
+            loss_G.backward()
+            optimizer_G.step()
+
+            # -------LOGGING-------
+            pbar.set_postfix({
+                'Loss_D': f"{loss_D.item():.4f}",
+                'Loss_G': f"{loss_G.item():.4f}",
+                'L1': f"{loss_G_L1.item():.4f}",
+            })
+
+        if epoch % 5 == 0:
+            torch.save(netG.state_dict(), f"{SAVE_DIR}/netG_epoch_{epoch}.pth")
+            torch.save(netD.state_dict(), f"{SAVE_DIR}/netD_epoch_{epoch}.pth")
+            print(f"Saved model at epoch {epoch}!")
+
+if __name__ == "__main__":
+    train()
