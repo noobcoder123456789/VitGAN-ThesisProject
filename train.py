@@ -101,4 +101,5 @@ def train(args):
             print(f"Saved model at epoch {epoch}!")
 
 if __name__ == "__main__":
-    train()
+    args = get_args()
+    train(args)
