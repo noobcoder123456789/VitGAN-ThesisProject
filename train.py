@@ -95,7 +95,7 @@ def train(args):
                 'L1': f"{loss_G_L1.item():.4f}",
             })
 
-        if epoch % 5 == 0:
+        if epoch % 1 == 0:
             torch.save(netG.state_dict(), f"{args.save_dir}/netG_epoch_{epoch}.pth")
             torch.save(netD.state_dict(), f"{args.save_dir}/netD_epoch_{epoch}.pth")
             print(f"Saved model at epoch {epoch}!")
