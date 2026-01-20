@@ -22,7 +22,8 @@ from criterion import GANLoss, WeightedL1Loss, get_weight_map
 def get_args():
     parser = argparse.ArgumentParser(description="Train ViT-GAN for Path Planning")
     parser.add_argument('--batch_size', type=int, default=8, help='Batch Size')
-    parser.add_argument('--lr', type=float, default=2e-4, help="Learning Rate")
+    parser.add_argument('--lr_G', type=float, default=2e-4, help="Learning Rate of Generator")
+    parser.add_argument('--lr_D', type=float, default=5e-5, help="Learning Rate of Discriminator")
     parser.add_argument('--beta1', type=float, default=0.5, help="beta1 param in Adam Optimizer")
     parser.add_argument('--beta2', type=float, default=0.999, help="beta2 param in Adam Optimizer")
     parser.add_argument('--epochs', type=int, default=100, help='Number of Epochs')
@@ -30,6 +31,9 @@ def get_args():
     parser.add_argument('--lambda_adv', type=float, default=1.0, help='Weight of Adversarial Loss')
     parser.add_argument('--save_dir', type=str, default="checkpoints", help="Directory to save models")
     parser.add_argument('--data_dir', type=str, default="datasets", help="Directory of datasets")
+    parser.add_argument('--start_epoch', type=int, default=1, help="Start training from epoch")
+    parser.add_argument('--end_epoch', type=int, default=100, help="End training at epoch")
+    parser.add_argument('--checkpoint_dir', type=str, default="checkpoints", help="Directory of previous checkpoint")
     return parser.parse_args()
 
 def train(args):
@@ -43,17 +47,28 @@ def train(args):
     netG = ViTGenerator().to(DEVICE)
     netD = ViTDiscriminator().to(DEVICE)
     
-    criterion_GAN = GANLoss().to(DEVICE)
+    criterion_GAN = GANLoss(real_target=0.9).to(DEVICE)
     criterion_L1 = WeightedL1Loss().to(DEVICE)
 
-    optimizer_G = optim.Adam(netG.parameters(), lr=args.lr, betas=(args.beta1, args.beta2))
-    optimizer_D = optim.Adam(netD.parameters(), lr=args.lr, betas=(args.beta1, args.beta2))
+    optimizer_G = optim.Adam(netG.parameters(), lr=args.lr_G, betas=(args.beta1, args.beta2))
+    optimizer_D = optim.Adam(netD.parameters(), lr=args.lr_D, betas=(args.beta1, args.beta2))
 
-    for epoch in range(1, args.epochs + 1):
+    start_epoch = args.start_epoch
+
+    if start_epoch > 1:
+        checkpoint_path = args.checkpoint_dir
+        if os.path.exists(checkpoint_path):
+            netG.load_state_dict(torch.load(checkpoint_path))
+            netD.load_state_dict(torch.load(checkpoint_path.replace("netG", "netD")))
+            print(f"Resuming training from epoch {start_epoch}...")
+        else:
+            print(f"Cannot find the checkpoint path!")
+
+    for epoch in range(start_epoch, args.end_epoch + 1):
         netG.train()
         netD.train()
 
-        pbar = tqdm(enumerate(dataloader), total=len(dataloader), desc=f"Epoch {epoch}/{args.epochs}")
+        pbar = tqdm(enumerate(dataloader), total=len(dataloader), desc=f"Epoch {epoch}/{args.end_epoch}")
         for i, (condition, target) in pbar:
             condition = condition.to(DEVICE)
             target = target.to(DEVICE)
