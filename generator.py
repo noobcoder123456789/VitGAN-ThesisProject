@@ -97,14 +97,11 @@ class ViTGenerator(nn.Module):
                     nn.init.constant_(m.bias, 0)
 
     def skip_connection(self, skip_tensor, target_size):
-        x = skip_tensor[:, 1:, :]
-        x = x.reshape(-1, 14, 14, 768)
-        x = x.permute(0, 3, 1, 2)
-        x = F.interpolate(x, size=(target_size, target_size), mode='bilinear', align_corners=False)
+        x = F.interpolate(skip_tensor, size=(target_size, target_size), mode='bilinear', align_corners=False)
         return x
     
     def forward(self, x):
-        skips = self.encoder.get_intermediate_layers(x, n=(3, 6, 9, 11))
+        skips = self.encoder.get_intermediate_layers(x, n=(3, 6, 9, 11), reshape=True)
         x = self.skip_connection(skips[3], 14)
         
         x = self.decoderBlock1(x)
