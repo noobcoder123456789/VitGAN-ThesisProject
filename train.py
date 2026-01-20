@@ -1,4 +1,4 @@
-import os, torch
+import os, torch, argparse
 import torch.optim as optim
 from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
@@ -9,22 +9,36 @@ from discriminator import ViTDiscriminator
 from criterion import GANLoss, WeightedL1Loss, get_weight_map
 
 # -------Hyperparameters-------
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 8
-LEARNING_RATE = 2e-4
-BETA1, BETA2 = 0.5, 0.999
-EPOCHS = 100
-LAMBDA_L1 = 100
-LAMDBA_ADV = 1
-SAVE_DIR = "checkpoints"
-DATA_DIR = "datasets"
 
-def train():
+# BATCH_SIZE = 8
+# LEARNING_RATE = 2e-4
+# BETA1, BETA2 = 0.5, 0.999
+# EPOCHS = 100
+# LAMBDA_L1 = 100
+# LAMDBA_ADV = 1
+# SAVE_DIR = "checkpoints"
+# DATA_DIR = "datasets"
+
+def get_args():
+    parser = argparse.ArgumentParser(description="Train ViT-GAN for Path Planning")
+    parser.add_argument('--batch_size', type=int, default=8, help='Batch Size')
+    parser.add_argument('--lr', type=float, default=2e-4, help="Learning Rate")
+    parser.add_argument('--beta1', type=float, default=0.5, help="beta1 param in Adam Optimizer")
+    parser.add_argument('--beta2', type=float, default=0.999, help="beta2 param in Adam Optimizer")
+    parser.add_argument('--epochs', type=int, default=100, help='Number of Epochs')
+    parser.add_argument('--lambda_l1', type=int, default=100, help='Weight of L1 Loss')
+    parser.add_argument('--lambda_adv', type=int, default=1, help='Weight of Adversarial Loss')
+    parser.add_argument('--save_dir', type=str, default="checkpoints", help="Directory to save models")
+    parser.add_argument('--data_dir', type=str, default="datasets", help="Directory of datasets")
+    return parser.parse_args()
+
+def train(args):
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
-    os.makedirs(SAVE_DIR, exist_ok=True)
+    os.makedirs(args.save_dir, exist_ok=True)
 
-    dataset = PathPlanningDataset(root_dir=DATA_DIR)
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+    dataset = PathPlanningDataset(root_dir=args.data_dir)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=2)
 
     netG = ViTGenerator().to(DEVICE)
     netD = ViTDiscriminator().to(DEVICE)
@@ -32,14 +46,14 @@ def train():
     criterion_GAN = GANLoss().to(DEVICE)
     criterion_L1 = WeightedL1Loss().to(DEVICE)
 
-    optimizer_G = optim.Adam(netG.parameters(), lr=LEARNING_RATE, betas=(BETA1, BETA2))
-    optimizer_D = optim.Adam(netD.parameters(), lr=LEARNING_RATE, betas=(BETA1, BETA2))
+    optimizer_G = optim.Adam(netG.parameters(), lr=args.lr, betas=(args.beta1, args.beta2))
+    optimizer_D = optim.Adam(netD.parameters(), lr=args.lr, betas=(args.beta1, args.beta2))
 
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, args.epochs + 1):
         netG.train()
         netD.train()
 
-        pbar = tqdm(enumerate(dataloader), total=len(dataloader), desc=f"Epoch {epoch}/{EPOCHS}")
+        pbar = tqdm(enumerate(dataloader), total=len(dataloader), desc=f"Epoch {epoch}/{args.epochs}")
         for i, (condition, target) in pbar:
             condition = condition.to(DEVICE)
             target = target.to(DEVICE)
@@ -70,7 +84,7 @@ def train():
             weights = get_weight_map(condition, DEVICE, penalty_weight=50.0)
             loss_G_L1 = criterion_L1(fake_image_new, target, weights)
 
-            loss_G = LAMBDA_L1 * loss_G_L1 + LAMDBA_ADV * loss_G_Adv
+            loss_G = args.lambda_l1 * loss_G_L1 + args.lambda_adv * loss_G_Adv
             loss_G.backward()
             optimizer_G.step()
 
@@ -82,8 +96,8 @@ def train():
             })
 
         if epoch % 5 == 0:
-            torch.save(netG.state_dict(), f"{SAVE_DIR}/netG_epoch_{epoch}.pth")
-            torch.save(netD.state_dict(), f"{SAVE_DIR}/netD_epoch_{epoch}.pth")
+            torch.save(netG.state_dict(), f"{args.save_dir}/netG_epoch_{epoch}.pth")
+            torch.save(netD.state_dict(), f"{args.save_dir}/netD_epoch_{epoch}.pth")
             print(f"Saved model at epoch {epoch}!")
 
 if __name__ == "__main__":
