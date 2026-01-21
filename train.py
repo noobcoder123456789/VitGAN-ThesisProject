@@ -23,7 +23,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Train ViT-GAN for Path Planning")
     parser.add_argument('--batch_size', type=int, default=8, help='Batch Size')
     parser.add_argument('--lr_G', type=float, default=2e-4, help="Learning Rate of Generator")
-    parser.add_argument('--lr_D', type=float, default=5e-5, help="Learning Rate of Discriminator")
+    parser.add_argument('--lr_D', type=float, default=1e-5, help="Learning Rate of Discriminator")
     parser.add_argument('--beta1', type=float, default=0.5, help="beta1 param in Adam Optimizer")
     parser.add_argument('--beta2', type=float, default=0.999, help="beta2 param in Adam Optimizer")
     parser.add_argument('--epochs', type=int, default=100, help='Number of Epochs')
@@ -36,6 +36,10 @@ def get_args():
     parser.add_argument('--checkpoint_dir', type=str, default="checkpoints", help="Directory of previous checkpoint")
     return parser.parse_args()
 
+def get_noisy_input(input_tensor, std=0.1):
+    noise = torch.randn_like(input_tensor) * std
+    return input_tensor + noise
+
 def train(args):
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {DEVICE}")
@@ -47,7 +51,7 @@ def train(args):
     netG = ViTGenerator().to(DEVICE)
     netD = ViTDiscriminator().to(DEVICE)
     
-    criterion_GAN = GANLoss(real_target=0.9).to(DEVICE)
+    criterion_GAN = GANLoss(real_target=0.9, fake_target=0.1).to(DEVICE)
     criterion_L1 = WeightedL1Loss().to(DEVICE)
 
     optimizer_G = optim.Adam(netG.parameters(), lr=args.lr_G, betas=(args.beta1, args.beta2))
@@ -76,13 +80,18 @@ def train(args):
             # -------Train Discriminator-------
             optimizer_D.zero_grad()
 
-            pred_real = netD(condition, target)
+            noisy_condition = get_noisy_input(condition, 0.05)
+            noisy_target = get_noisy_input(target, 0.05)
+
+            pred_real = netD(noisy_condition, noisy_target)
             loss_D_real = criterion_GAN(pred_real, True)
 
             with torch.no_grad():
                 fake_image = netG(condition)
 
-            pred_fake = netD(condition, fake_image.detach())
+            noisy_fake = get_noisy_input(fake_image.detach(), 0.05)
+
+            pred_fake = netD(noisy_condition, noisy_fake)
             loss_D_fake = criterion_GAN(pred_fake, False)
 
             loss_D = 0.5 * (loss_D_fake + loss_D_real)
@@ -90,18 +99,22 @@ def train(args):
             optimizer_D.step()
 
             # -------Train Generator-------
-            optimizer_G.zero_grad()
+            GENERATOR_STEPS = 2
+            for __ in range(GENERATOR_STEPS):
+                optimizer_G.zero_grad()
 
-            fake_image_new = netG(condition)
-            pred_fake_new = netD(condition, fake_image_new)
-            loss_G_Adv = criterion_GAN(pred_fake_new, True)
+                fake_image_new = netG(condition)
+                noisy_condition_for_G = get_noisy_input(condition, 0.05) 
+                
+                pred_fake_new = netD(noisy_condition_for_G, fake_image_new)
+                loss_G_Adv = criterion_GAN(pred_fake_new, True)
 
-            weights = get_weight_map(condition, DEVICE, penalty_weight=50.0)
-            loss_G_L1 = criterion_L1(fake_image_new, target, weights)
+                weights = get_weight_map(condition, DEVICE, penalty_weight=20.0)
+                loss_G_L1 = criterion_L1(fake_image_new, target, weights)
 
-            loss_G = args.lambda_l1 * loss_G_L1 + args.lambda_adv * loss_G_Adv
-            loss_G.backward()
-            optimizer_G.step()
+                loss_G = args.lambda_l1 * loss_G_L1 + args.lambda_adv * loss_G_Adv
+                loss_G.backward()
+                optimizer_G.step()
 
             # -------LOGGING-------
             pbar.set_postfix({
