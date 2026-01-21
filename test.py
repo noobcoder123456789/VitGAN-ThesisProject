@@ -41,9 +41,9 @@ def preprocess_input(map_path, points_path, device):
     points_tensor = transform(points_img).to(device)
 
     input_tensor = points_tensor * map_tensor
-    input_tensor.unsqueeze(0)
-
     input_img = convert2PILImage(input_tensor)
+
+    input_tensor = input_tensor.unsqueeze(0)
 
     return input_tensor, input_img
 
@@ -72,13 +72,15 @@ def test(args):
 
         plt.subplot(1, 2, 2)
         plt.title("Promising Region")
-        plt.imshow(result_img)
+        plt.imshow(result_img, cmap='gray')
         plt.axes('off')
 
         plt.show()
 
     except Exception as e:
         print(f"An error has occurred: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     args = get_args()
