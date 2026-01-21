@@ -73,7 +73,7 @@ def test(args):
         plt.subplot(1, 2, 2)
         plt.title("Promising Region")
         plt.imshow(result_img, cmap='gray')
-        plt.axes('off')
+        plt.axis('off')
 
         plt.show()
 
