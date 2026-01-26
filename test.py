@@ -58,6 +58,8 @@ def test(args):
 
         with torch.no_grad():
             result_tensor = netG(input_tensor).squeeze().cpu()
+            print(f"Min value: {result_tensor.min():.4f}, Max value: {result_tensor.max():.4f}, Mean: {result_tensor.mean():.4f}")
+            threshold_output = (result_tensor > 0.95).float()
 
         result_img = convert2PILImage(result_tensor)
         result_img.save(args.output_path)
