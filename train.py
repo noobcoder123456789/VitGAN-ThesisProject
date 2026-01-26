@@ -2,6 +2,7 @@ import os, torch, argparse
 import torch.optim as optim
 from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
+from torchvision.utils import save_image
 
 from datasets import PathPlanningDataset
 from generator import ViTGenerator
@@ -127,6 +128,21 @@ def train(args):
             torch.save(netG.state_dict(), f"{args.save_dir}/netG_epoch_{epoch}.pth")
             torch.save(netD.state_dict(), f"{args.save_dir}/netD_epoch_{epoch}.pth")
             print(f"Saved model at epoch {epoch}!")
+
+            netG.eval()
+            with torch.no_grad():
+                sample_input = condition[0].cpu() 
+                sample_target = target[0].cpu()
+
+                sample_output = netG(condition[0].unsqueeze(0).to(DEVICE)).squeeze(0).cpu()
+
+                sample_target_3c = sample_target.repeat(3, 1, 1)
+                sample_output_3c = sample_output.repeat(3, 1, 1)
+
+                combined_img = torch.cat((sample_input, sample_target_3c, sample_output_3c), dim=2)
+                save_image(combined_img, f"{args.save_dir}/vis_epoch_{epoch}.png")
+            
+            netG.train()
 
 if __name__ == "__main__":
     args = get_args()
