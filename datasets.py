@@ -52,6 +52,7 @@ class PathPlanningDataset(Dataset):
         points_tensor = self.transform(points_img)
         input_tensor = points_tensor * map_tensor
         target_tensor = self.transform(target_img)
+        target_tensor = (target_tensor < 0.95).float()
 
         return input_tensor, target_tensor
     
