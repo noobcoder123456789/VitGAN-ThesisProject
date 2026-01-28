@@ -46,13 +46,10 @@ class WeightedL1Loss(nn.Module):
 
         return loss.mean()
     
-def get_weight_map(inputs, device, penalty_weight=50.0):
-    """
-    inputs: Conditional Image [B, 3, 224, 224]
-    penalty_weight: weight for start/goal pixel in order to make 
-                    start/goal more important
-    """
-    weights = torch.ones((inputs.shape[0], 1, inputs.shape[2], inputs.shape[3]), device=device)
-    start_goal_mask = (inputs[:, 0:1, :, :] + inputs[:, 2:3, :, :]) > 0.1
+def get_weight_map(condition, target, device, penalty_weight=50.0):
+    weights = torch.ones((condition.shape[0], 1, condition.shape[2], condition.shape[3]), device=device)
+    path_mask = target > 0.5
+    weights[path_mask] = penalty_weight
+    start_goal_mask = (condition[:, 0:1, :, :] + condition[:, 2:3, :, :]) > 0.1
     weights[start_goal_mask] = penalty_weight
     return weights

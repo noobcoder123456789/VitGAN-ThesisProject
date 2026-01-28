@@ -110,7 +110,7 @@ def train(args):
                 pred_fake_new = netD(noisy_condition_for_G, fake_image_new)
                 loss_G_Adv = criterion_GAN(pred_fake_new, True)
 
-                weights = get_weight_map(condition, DEVICE, penalty_weight=20.0)
+                weights = get_weight_map(condition, target, DEVICE, penalty_weight=50.0) 
                 loss_G_L1 = criterion_L1(fake_image_new, target, weights)
 
                 loss_G = args.lambda_l1 * loss_G_L1 + args.lambda_adv * loss_G_Adv
