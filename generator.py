@@ -51,17 +51,19 @@ class ResidualBlock(nn.Module):
 class ViTGenerator(nn.Module):
     def __init__(self):
         super().__init__()
-        self.encoder = timm.create_model('vit_base_patch16_224', pretrained=True)
+        self.encoder = timm.create_model('vit_tiny_patch16_224', pretrained=True)
         self.encoder.head = nn.Identity()
 
-        self.decoderBlock1 = DecoderBlock(768, 256)
+        embed_dim = 192 
+
+        self.decoderBlock1 = DecoderBlock(embed_dim, 256)
         self.decoderBlock2 = DecoderBlock(256, 128)
         self.decoderBlock3 = DecoderBlock(128, 64)
         self.decoderBlock4 = DecoderBlock(64, 32)
 
-        self.bottleneck1 = BottleneckBlock(1024, 256)
-        self.bottleneck2 = BottleneckBlock(896, 128)
-        self.bottleneck3 = BottleneckBlock(832, 64)
+        self.bottleneck1 = BottleneckBlock(256 + embed_dim, 256) 
+        self.bottleneck2 = BottleneckBlock(128 + embed_dim, 128)
+        self.bottleneck3 = BottleneckBlock(64 + embed_dim, 64)
 
         self.refining_block = ResidualBlock(32)
 

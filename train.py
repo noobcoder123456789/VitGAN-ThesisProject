@@ -100,7 +100,7 @@ def train(args):
             optimizer_D.step()
 
             # -------Train Generator-------
-            GENERATOR_STEPS = 2
+            GENERATOR_STEPS = 1
             for __ in range(GENERATOR_STEPS):
                 optimizer_G.zero_grad()
 
