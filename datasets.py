@@ -1,4 +1,5 @@
-import os, glob, torch
+import numpy as np
+import os, glob, cv2
 from torch.utils.data import Dataset
 from PIL import Image
 import torchvision.transforms as transforms
@@ -21,6 +22,10 @@ class PathPlanningDataset(Dataset):
             map_path = os.path.join(num_folder, "map.png")
             points_path = os.path.join(pair_folder, "points.png")
             promising_path = os.path.join(pair_folder, "promising.png")
+
+            img = cv2.imread(promising_path, cv2.IMREAD_GRAYSCALE)
+            if np.mean(img) == 255:
+                continue
 
             if (
                 os.path.exists(map_path) 
